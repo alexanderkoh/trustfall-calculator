@@ -9,6 +9,7 @@ import {
   Gift, Award, TrendingUp, DollarSign, UserCheck 
 } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
+import { Player } from '@/types/simulation';
 
 const tokenConfigSchema = z.object({
   monthlyIncentivePool: z.number().min(1, 'Must be at least 1 token').max(1000000, 'Pool too large'),
@@ -124,7 +125,7 @@ export function TokenSimulation() {
   // Calculate extra tokens preview
   const getExtraTokensPreview = () => {
     const data = extraTokensForm.getValues();
-    const recipients: any[] = [];
+    const recipients: Array<{ player: Player; tokens: number }> = [];
 
     switch (data.distributionType) {
       case 'specific':
@@ -466,7 +467,7 @@ export function TokenSimulation() {
               <tbody>
                 {currentDistribution
                   .sort((a, b) => b.tokenReward - a.tokenReward)
-                  .map(({ player, weightedClaim, tokenReward, totalTokens }) => (
+                  .map(({ player, weightedClaim, tokenReward }) => (
                     <tr key={player.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <td className="py-3 px-4 font-medium">{player.name}</td>
                       <td className="py-3 px-4">

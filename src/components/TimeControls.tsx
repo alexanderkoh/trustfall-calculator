@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Clock, Play, Pause, FastForward, RotateCcw, Calendar, Timer, Settings } from 'lucide-react';
+import { Clock, Play, Pause, RotateCcw, Timer, Settings } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
 import { SimulationMode } from '@/types/simulation';
 
@@ -26,10 +26,8 @@ export function TimeControls() {
     currentRound,
     updateConfig, 
     updateSimulationMode,
-    advanceTime, 
-    pauseSimulation, 
+    pauseSimulation,
     resumeSimulation,
-    simulateRound,
     resetSimulation 
   } = useSimulationStore();
 
@@ -75,7 +73,7 @@ export function TimeControls() {
     return `${hours}h ${remainingMinutes.toFixed(0)}m`;
   };
 
-  const formatDate = (date: Date | string | any) => {
+  const formatDate = (date: Date | string | unknown) => {
     // Convert to Date object if it's not already
     let dateObj: Date;
     
@@ -83,8 +81,8 @@ export function TimeControls() {
       dateObj = date;
     } else if (typeof date === 'string') {
       dateObj = new Date(date);
-    } else if (date && typeof date === 'object' && date.getTime) {
-      dateObj = new Date(date.getTime());
+    } else if (date && typeof date === 'object' && 'getTime' in date && typeof (date as { getTime: () => number }).getTime === 'function') {
+      dateObj = new Date((date as { getTime: () => number }).getTime());
     } else {
       return 'Invalid Date';
     }

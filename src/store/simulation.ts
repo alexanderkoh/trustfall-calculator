@@ -6,8 +6,6 @@ import {
   SimulationState, 
   SimulationConfig, 
   PayoutMatrix, 
-  VaultRewardsCalculation, 
-  TokenDistribution,
   getFactionByReputation,
   getDefaultSimulationConfig,
   ScenarioExport,
@@ -21,7 +19,7 @@ import {
 
 interface SimulationStore extends SimulationState {
   // Player Management
-  addPlayer: (player: Pick<Player, 'name' | 'initialVaultedPrincipal' | 'reputation' | 'trustPercentage'>) => void;
+  addPlayer: (player: Pick<Player, 'name' | 'initialDeposit' | 'reputation' | 'trustPercentage'>) => void;
   removePlayer: (playerId: string) => void;
   updatePlayer: (playerId: string, updates: Partial<Player>) => void;
   resetPlayerData: (playerId: string) => void;
@@ -103,7 +101,7 @@ export const useSimulationStore = create<SimulationStore>()(
       players: [],
       matches: [],
       config: getDefaultSimulationConfig(),
-      vaultRewardsCalculations: [],
+      yieldCalculations: [],
       tokenDistributions: [],
       reputationEvents: [],
       protocolRevenue: [],
@@ -114,7 +112,7 @@ export const useSimulationStore = create<SimulationStore>()(
         trustTrustMatches: 0,
         betrayTrustMatches: 0,
         betrayBetrayMatches: 0,
-        totalVaultRewardsGenerated: 0,
+        totalYieldGenerated: 0,
         totalTokensDistributed: 0,
         totalProtocolRevenue: 0,
         totalBuybacks: 0,
@@ -128,10 +126,10 @@ export const useSimulationStore = create<SimulationStore>()(
           ...playerData,
           id: generateId(),
           faction,
-          currentVaultedPrincipal: playerData.initialVaultedPrincipal,
+          currentDeposit: playerData.initialDeposit,
           totalMatches: 0,
           score: 0,
-          vaultRewards: 0,
+          finalYield: 0,
           tokenRewards: {},
           createdAt: new Date(),
           reputationHistory: [],
@@ -151,7 +149,7 @@ export const useSimulationStore = create<SimulationStore>()(
 
         return {
           players: [...state.players, newPlayer],
-          totalVaultValue: state.totalVaultValue + newPlayer.initialVaultedPrincipal,
+          totalVaultValue: state.totalVaultValue + newPlayer.initialDeposit,
           reputationEvents: [...state.reputationEvents, initialReputationEvent],
         };
       }),
@@ -202,7 +200,7 @@ export const useSimulationStore = create<SimulationStore>()(
         tokenDistributions: state.tokenDistributions.filter(td => td.playerId !== playerId),
       })),
 
-      clearAllPlayers: () => set((state) => ({
+      clearAllPlayers: () => set(() => ({
         players: [],
         matches: [],
         yieldCalculations: [],
@@ -907,15 +905,13 @@ export const useSimulationStore = create<SimulationStore>()(
       })),
 
       advanceTimeByMode: (mode: SimulationMode, amount: number) => {
-        const { config } = get();
-        
         switch (mode) {
           case 'rounds':
             // For rounds, we don't advance calendar time, just round count
             // Time advancement is based on match duration
             const matchesPerRound = Math.max(1, Math.floor(get().players.length / 2));
             const totalMatches = amount * matchesPerRound;
-            const totalMinutes = totalMatches * config.matchDurationMinutes;
+            const totalMinutes = totalMatches * get().config.matchDurationMinutes;
             const daysToAdvance = totalMinutes / (24 * 60);
             get().advanceTime(daysToAdvance);
             break;
@@ -1002,25 +998,43 @@ export const useSimulationStore = create<SimulationStore>()(
     {
       name: 'trustfall-simulation',
       version: 1,
-      migrate: (persistedState: any, version: number) => {
+      migrate: (persistedState: unknown, version: number) => {
         if (version === 0) {
           // Handle migration from version 0 to 1
+          const state = persistedState as {
+            config?: {
+              simulationStartDate?: Date | string;
+              currentDate?: Date | string;
+            };
+            players?: Array<{
+              createdAt?: Date | string;
+            }>;
+            matches?: Array<{
+              timestamp?: Date | string;
+              playerA?: {
+                createdAt?: Date | string;
+              };
+              playerB?: {
+                createdAt?: Date | string;
+              } | null;
+            }>;
+          };
           return {
-            ...persistedState,
+            ...state,
             config: {
-              ...persistedState.config,
-              simulationStartDate: persistedState.config?.simulationStartDate ? 
-                (persistedState.config.simulationStartDate instanceof Date ? 
-                  persistedState.config.simulationStartDate : 
-                  new Date(persistedState.config.simulationStartDate)) : 
+              ...state.config,
+              simulationStartDate: state.config?.simulationStartDate ? 
+                (state.config.simulationStartDate instanceof Date ? 
+                  state.config.simulationStartDate : 
+                  new Date(state.config.simulationStartDate)) : 
                 new Date(),
-              currentDate: persistedState.config?.currentDate ? 
-                (persistedState.config.currentDate instanceof Date ? 
-                  persistedState.config.currentDate : 
-                  new Date(persistedState.config.currentDate)) : 
+              currentDate: state.config?.currentDate ? 
+                (state.config.currentDate instanceof Date ? 
+                  state.config.currentDate : 
+                  new Date(state.config.currentDate)) : 
                 new Date(),
             },
-            players: persistedState.players?.map((player: any) => ({
+            players: state.players?.map((player: { createdAt?: Date | string }) => ({
               ...player,
               createdAt: player.createdAt ? 
                 (player.createdAt instanceof Date ? 
@@ -1028,7 +1042,11 @@ export const useSimulationStore = create<SimulationStore>()(
                   new Date(player.createdAt)) : 
                 new Date(),
             })) || [],
-            matches: persistedState.matches?.map((match: any) => ({
+            matches: state.matches?.map((match: {
+              timestamp?: Date | string;
+              playerA?: { createdAt?: Date | string };
+              playerB?: { createdAt?: Date | string } | null;
+            }) => ({
               ...match,
               timestamp: match.timestamp ? 
                 (match.timestamp instanceof Date ? 

@@ -2,15 +2,14 @@
 
 import { useState } from 'react';
 import { 
-  X, TrendingUp, TrendingDown, Users, Target, DollarSign, 
-  Award, Clock, BarChart3, Eye, EyeOff, ArrowUp, ArrowDown
+  X, TrendingUp, Users, Target, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell 
+  ResponsiveContainer, BarChart, Bar
 } from 'recharts';
 import { useSimulationStore } from '@/store/simulation';
-import { Player, ReputationEvent } from '@/types/simulation';
+import { Player } from '@/types/simulation';
 
 interface PlayerDetailsProps {
   player: Player;
@@ -57,7 +56,6 @@ export function PlayerDetails({ player, onClose }: PlayerDetailsProps) {
     const scoreChange = isPlayerA ? match.scoreChangeA : match.scoreChangeB;
     const reputationChange = isPlayerA ? match.reputationChangeA : match.reputationChangeB;
     const yieldShare = isPlayerA ? match.yieldShareA : match.yieldShareB;
-    const opponent = isPlayerA ? match.playerB : match.playerA;
 
     return {
       id: match.id,
@@ -68,7 +66,6 @@ export function PlayerDetails({ player, onClose }: PlayerDetailsProps) {
       scoreChange,
       reputationChange,
       yieldShare,
-      opponent: opponent?.name || 'Arbiter',
       isPositive: scoreChange > 0,
     };
   });
@@ -132,7 +129,7 @@ export function PlayerDetails({ player, onClose }: PlayerDetailsProps) {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as 'overview' | 'reputation' | 'matches')}
                 className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-900/20'
@@ -237,7 +234,13 @@ export function PlayerDetails({ player, onClose }: PlayerDetailsProps) {
                                          <Tooltip 
                        content={({ active, payload }) => {
                          if (active && payload && payload.length) {
-                           const data = payload[0].payload as any;
+                           const data = payload[0].payload as {
+                             index: number;
+                             reputation: number;
+                             change: number;
+                             reason: string;
+                             details?: string;
+                           };
                            return (
                              <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
                                <p className="font-medium">Event #{data.index + 1}</p>
@@ -318,7 +321,14 @@ export function PlayerDetails({ player, onClose }: PlayerDetailsProps) {
                                          <Tooltip 
                        content={({ active, payload }) => {
                          if (active && payload && payload.length) {
-                           const data = payload[0].payload as any;
+                           const data = payload[0].payload as {
+                             round: number;
+                             action: string;
+                             result: string;
+                             scoreChange: number;
+                             reputationChange: number;
+                             yieldShare: number;
+                           };
                            return (
                              <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
                                <p className="font-medium">Round {data.round}</p>

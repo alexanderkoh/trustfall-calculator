@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { TrendingUp, DollarSign, Calendar, RefreshCw, Calculator } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
+import { Player } from '@/types/simulation';
 
 const yieldConfigSchema = z.object({
   globalAPY: z.number().min(0, 'APY cannot be negative').max(100, 'APY cannot exceed 100%'),
@@ -28,7 +29,21 @@ export function YieldSimulator() {
   } = useSimulationStore();
 
   const [previewMode, setPreviewMode] = useState(false);
-  const [previewData, setPreviewData] = useState<any>(null);
+  const [previewData, setPreviewData] = useState<{
+    players: Array<{
+      player: Player;
+      baseYield: number;
+      matchYield: number;
+      totalYield: number;
+      effectiveAPY: number;
+    }>;
+    totals: {
+      baseYield: number;
+      matchYield: number;
+      totalYield: number;
+      averageEffectiveAPY: number;
+    };
+  } | null>(null);
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<YieldConfigData>({
     resolver: zodResolver(yieldConfigSchema),
@@ -286,7 +301,13 @@ export function YieldSimulator() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(previewMode && previewData ? previewData.players : (currentYieldData?.players || [])).map((item: any) => (
+                  {(previewMode && previewData ? previewData.players : (currentYieldData?.players || [])).map((item: {
+                    player: Player;
+                    baseYield: number;
+                    matchYield: number;
+                    totalYield: number;
+                    effectiveAPY: number;
+                  }) => (
                     <tr key={item.player.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <td className="py-3 px-4">
                         <div className="font-medium text-gray-900 dark:text-white">{item.player.name}</div>

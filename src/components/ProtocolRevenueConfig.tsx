@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { 
   DollarSign, 
   TrendingUp, 
-  Flame, 
   Settings, 
   Info,
   Calculator,
@@ -32,7 +31,19 @@ export function ProtocolRevenueConfig() {
     baseYield: number;
     playerADeposit: number;
     playerBDeposit: number;
-    revenue: any;
+    revenue: {
+      id: string;
+      matchId: string;
+      timestamp: Date;
+      feeType: string;
+      feeRate: number;
+      baseYield: number;
+      protocolFee: number;
+      playerYield: number;
+      buybackAmount: number;
+      burnAmount: number;
+      netRevenue: number;
+    };
   } | null>(null);
 
   const form = useForm<ProtocolConfigData>({
@@ -46,7 +57,7 @@ export function ProtocolRevenueConfig() {
     },
   });
 
-  const { watch, setValue, handleSubmit, formState: { errors } } = form;
+  const { watch, setValue, handleSubmit } = form;
   const watchedValues = watch();
 
   const onSubmit = (data: ProtocolConfigData) => {

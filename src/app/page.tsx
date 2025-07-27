@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Home, Settings, Play, BarChart3, 
+  BarChart3, 
   Lightbulb, Cog, Activity, TrendingUp 
 } from 'lucide-react';
 import { WelcomeGuide } from '@/components/WelcomeGuide';
@@ -13,7 +13,7 @@ import { Analysis } from '@/components/Analysis';
 import { useSimulationStore } from '@/store/simulation';
 
 export default function HomePage() {
-  const { players, matches, currentRound, totalVaultValue, statistics } = useSimulationStore();
+  const { players, matches, currentRound, totalVaultValue } = useSimulationStore();
   const [activeTab, setActiveTab] = useState('welcome');
 
   const getStepNumber = (tab: string) => {

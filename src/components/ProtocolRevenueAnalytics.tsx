@@ -18,9 +18,7 @@ import {
 import { 
   DollarSign, 
   TrendingUp, 
-  Flame, 
   PieChart as PieChartIcon,
-  Calendar,
   Filter,
   Download,
   Settings
@@ -114,26 +112,22 @@ export function ProtocolRevenueAnalytics() {
     return (statistics.totalProtocolRevenue / statistics.totalYieldGenerated) * 100;
   }, [statistics]);
 
-  // Calculate estimated token buybacks
-  const estimatedBuybacks = useMemo(() => {
-    // This would be calculated based on token price and buyback allocation
-    // For now, we'll show the total buyback amount
-    return statistics.totalBuybacks;
-  }, [statistics]);
 
-  // Calculate simulated burn effect
-  const burnEffect = useMemo(() => {
-    // This would show the impact on token supply
-    // For now, we'll show the total burn amount
-    return statistics.totalBurns;
-  }, [statistics]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: {
+    active?: boolean;
+    payload?: Array<{
+      name: string;
+      value: number;
+      color: string;
+    }>;
+    label?: string;
+  }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <p className="font-medium">{label}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index: number) => (
             <p key={index} style={{ color: entry.color }}>
               {entry.name}: ${entry.value.toFixed(2)}
             </p>
@@ -160,7 +154,7 @@ export function ProtocolRevenueAnalytics() {
         <div className="flex items-center space-x-2">
           <select
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value as any)}
+            onChange={(e) => setSelectedPeriod(e.target.value as 'all' | 'daily' | 'weekly' | 'monthly')}
             className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
           >
             <option value="all">All Time</option>

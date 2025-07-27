@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ScatterChart, Scatter
 } from 'recharts';
 import { 
   TrendingUp, Users, DollarSign, Target, BarChart3, PieChart as PieChartIcon,
-  Activity, Award, TrendingDown, Eye, EyeOff
+  Activity, Award, Eye, EyeOff
 } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
 
@@ -28,7 +28,6 @@ export function Dashboard() {
     matches, 
     config, 
     statistics,
-    totalVaultValue,
     tokenDistributions 
   } = useSimulationStore();
 
@@ -36,16 +35,7 @@ export function Dashboard() {
   const [showDetails, setShowDetails] = useState(true);
   const [selectedMode, setSelectedMode] = useState<'rounds' | 'days' | 'weeks' | 'months'>('rounds');
 
-  // Helper function to get mode-specific labels
-  const getModeLabel = (mode: string) => {
-    switch (mode) {
-      case 'rounds': return 'per Round';
-      case 'days': return 'per Day';
-      case 'weeks': return 'per Week';
-      case 'months': return 'per Month';
-      default: return 'per Round';
-    }
-  };
+
 
   // Helper function to calculate mode-specific metrics
   const getModeMetrics = () => {
@@ -214,7 +204,7 @@ export function Dashboard() {
     acc[key].tokens += dist.tokenReward;
     acc[key].recipients += 1;
     return acc;
-  }, {} as Record<string, any>);
+  }, {} as Record<string, { recipients: number; tokens: number; month: string }>);
 
   const tokenHistory = Object.values(tokenHistoryData).slice(-10);
 

@@ -13,13 +13,13 @@ export interface ReputationEvent {
 export interface Player {
   id: string;
   name: string;
-  initialVaultedPrincipal: number;
-  currentVaultedPrincipal: number;
+  initialDeposit: number;
+  currentDeposit: number;
   reputation: number;
   faction: 'Shadow Syndicate' | 'Free Agents' | 'Lumina Collective';
   totalMatches: number;
   score: number;
-  vaultRewards: number;
+  finalYield: number;
   trustPercentage: number; // Strategy: % chance to trust
   tokenRewards: Record<string, number>; // Map of tokenType to amount
   createdAt: Date;
@@ -39,9 +39,9 @@ export interface Match {
   scoreChangeB: number;
   reputationChangeA: number;
   reputationChangeB: number;
-  vaultRewardsShareA: number;
-  vaultRewardsShareB: number;
-  totalVaultRewardsGenerated: number;
+  yieldShareA: number;
+  yieldShareB: number;
+  totalYieldGenerated: number;
   timestamp: Date;
 }
 
@@ -49,26 +49,26 @@ export interface PayoutMatrix {
   trustTrust: {
     scoreA: number;
     scoreB: number;
-    vaultRewardsShareA: number;
-    vaultRewardsShareB: number;
+    yieldShareA: number;
+    yieldShareB: number;
   };
   betrayTrust: {
     scoreA: number;
     scoreB: number;
-    vaultRewardsShareA: number;
-    vaultRewardsShareB: number;
+    yieldShareA: number;
+    yieldShareB: number;
   };
   trustBetray: {
     scoreA: number;
     scoreB: number;
-    vaultRewardsShareA: number;
-    vaultRewardsShareB: number;
+    yieldShareA: number;
+    yieldShareB: number;
   };
   betrayBetray: {
     scoreA: number;
     scoreB: number;
-    vaultRewardsShareA: number;
-    vaultRewardsShareB: number;
+    yieldShareA: number;
+    yieldShareB: number;
     burnPercentage: number;
   };
 }
@@ -116,17 +116,17 @@ export interface SimulationConfig {
   protocol: ProtocolConfig;
 }
 
-export interface VaultRewardsCalculation {
+export interface YieldCalculation {
   playerId: string;
-  dailyVaultRewards: number;
-  totalVaultRewardsAccrued: number;
-  vaultRewardsFromMatches: number;
+  dailyYield: number;
+  totalYieldAccrued: number;
+  yieldFromMatches: number;
   lastCalculated: Date;
 }
 
 export interface TokenDistribution {
   playerId: string;
-  weightedClaim: number; // vaultedPrincipal * score
+  weightedClaim: number; // deposit * score
   tokenReward: number;
   tokenType: string; // e.g., 'HOOPS', 'REP', 'BONUS'
   tokenSymbol: string; // e.g., '$HOOPS', '$REP', '$BONUS'
@@ -138,7 +138,7 @@ export interface SimulationState {
   players: Player[];
   matches: Match[];
   config: SimulationConfig;
-  vaultRewardsCalculations: VaultRewardsCalculation[];
+  yieldCalculations: YieldCalculation[];
   tokenDistributions: TokenDistribution[];
   reputationEvents: ReputationEvent[];
   protocolRevenue: ProtocolRevenue[];
@@ -149,7 +149,7 @@ export interface SimulationState {
     trustTrustMatches: number;
     betrayTrustMatches: number;
     betrayBetrayMatches: number;
-    totalVaultRewardsGenerated: number;
+    totalYieldGenerated: number;
     totalTokensDistributed: number;
     totalProtocolRevenue: number;
     totalBuybacks: number;
@@ -180,26 +180,26 @@ export const getDefaultPayoutMatrix = (): PayoutMatrix => ({
   trustTrust: {
     scoreA: 2,
     scoreB: 2,
-    vaultRewardsShareA: 50,
-    vaultRewardsShareB: 50,
+    yieldShareA: 50,
+    yieldShareB: 50,
   },
   betrayTrust: {
     scoreA: 3,
     scoreB: -3,
-    vaultRewardsShareA: 100,
-    vaultRewardsShareB: 0,
+    yieldShareA: 100,
+    yieldShareB: 0,
   },
   trustBetray: {
     scoreA: -3,
     scoreB: 3,
-    vaultRewardsShareA: 0,
-    vaultRewardsShareB: 100,
+    yieldShareA: 0,
+    yieldShareB: 100,
   },
   betrayBetray: {
     scoreA: -1,
     scoreB: -1,
-    vaultRewardsShareA: 25,
-    vaultRewardsShareB: 25,
+    yieldShareA: 25,
+    yieldShareB: 25,
     burnPercentage: 50,
   },
 });
