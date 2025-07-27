@@ -326,8 +326,6 @@ export function PlayerDetails({ player, onClose }: PlayerDetailsProps) {
                              action: string;
                              result: string;
                              scoreChange: number;
-                             reputationChange: number;
-                             yieldShare: number;
                            };
                            return (
                              <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
@@ -335,8 +333,6 @@ export function PlayerDetails({ player, onClose }: PlayerDetailsProps) {
                                <p className="text-sm text-gray-600">Action: {data.action}</p>
                                <p className="text-sm text-gray-600">Result: {data.result}</p>
                                <p className="text-sm text-gray-600">Score: {data.scoreChange > 0 ? '+' : ''}{data.scoreChange}</p>
-                               <p className="text-sm text-gray-600">Reputation: {data.reputationChange > 0 ? '+' : ''}{data.reputationChange}</p>
-                               <p className="text-sm text-gray-600">Yield: ${data.yieldShare.toFixed(2)}</p>
                              </div>
                            );
                          }
@@ -359,8 +355,8 @@ export function PlayerDetails({ player, onClose }: PlayerDetailsProps) {
                     const isPlayerA = match.playerA.id === player.id;
                     const action = isPlayerA ? match.actionA : match.actionB;
                     const scoreChange = isPlayerA ? match.scoreChangeA : match.scoreChangeB;
-                    const reputationChange = isPlayerA ? match.reputationChangeA : match.reputationChangeB;
-                    const yieldShare = isPlayerA ? match.yieldShareA : match.yieldShareB;
+                    // const reputationChange = isPlayerA ? match.reputationChangeA : match.reputationChangeB;
+                    // const yieldShare = isPlayerA ? match.yieldShareA : match.yieldShareB;
                     const opponent = isPlayerA ? match.playerB : match.playerA;
 
                     return (

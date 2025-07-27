@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { 
-  Download, Upload, Save, FileText, Share2, Trash2, 
+  Download, Upload, Save, FileText, Trash2, 
   Copy, Check, AlertCircle, Calendar, Users, Settings 
 } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
@@ -67,7 +67,7 @@ export function ScenarioManager() {
         } else {
           setImportError('Invalid scenario file format');
         }
-      } catch (error) {
+      } catch {
         setImportError('Failed to parse scenario file');
       }
     };
@@ -79,7 +79,7 @@ export function ScenarioManager() {
       await navigator.clipboard.writeText(id);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (error) {
+    } catch {
       console.error('Failed to copy scenario ID');
     }
   };
@@ -99,7 +99,7 @@ export function ScenarioManager() {
         player.faction,
         player.currentDeposit,
         player.reputation,
-        player.trustPercentage,
+        player.strategy.type === 'percentage' ? (player.strategy.trustPercentage || 50) : 50,
         player.score,
         player.totalMatches,
         player.finalYield,

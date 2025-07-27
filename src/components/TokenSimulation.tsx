@@ -5,8 +5,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { 
-  Coins, Calculator, History, Plus, Users, Target, 
-  Gift, Award, TrendingUp, DollarSign, UserCheck 
+  Coins, Calculator, Plus, Users, 
+  Gift, Award, TrendingUp, UserCheck 
 } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
 import { Player } from '@/types/simulation';

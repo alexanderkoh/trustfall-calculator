@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { 
   BarChart3, TrendingUp, Users, Target, Coins, 
-  PieChart, Activity, Filter, Download, Eye, UserCheck, DollarSign
+  PieChart, Activity, Filter, Download, Eye, UserCheck, DollarSign, Brain
 } from 'lucide-react';
 import { Dashboard } from './Dashboard';
 import { ScenarioManager } from './ScenarioManager';
@@ -11,6 +11,7 @@ import { PlayerDetails } from './PlayerDetails';
 import { ProtocolRevenueAnalytics } from './ProtocolRevenueAnalytics';
 import { useSimulationStore } from '@/store/simulation';
 import { Player } from '@/types/simulation';
+
 
 interface PlayerPerformanceViewProps {
   onPlayerSelect: (player: Player) => void;
@@ -55,15 +56,14 @@ function PlayerPerformanceView({ onPlayerSelect }: PlayerPerformanceViewProps) {
       avgScorePerMatch,
       reputationChange,
       totalYield: player.finalYield,
+      strategyName: player.strategy?.name || 'Percentage Trust',
+      strategyDescription: player.strategy?.description || 'Default strategy',
     };
   });
 
   // Sort by different criteria
   const topScorers = [...playerStats].sort((a, b) => b.score - a.score);
   const topWinners = [...playerStats].sort((a, b) => b.winRate - a.winRate);
-  const topTrusters = [...playerStats].sort((a, b) => b.trustRate - a.trustRate);
-  const topYielders = [...playerStats].sort((a, b) => b.totalYield - a.totalYield);
-  const topReputationGainers = [...playerStats].sort((a, b) => b.reputationChange - a.reputationChange);
 
   return (
     <div className="space-y-6">
@@ -112,7 +112,11 @@ function PlayerPerformanceView({ onPlayerSelect }: PlayerPerformanceViewProps) {
                   </div>
                   <div>
                     <p className="font-medium">{player.name}</p>
-                    <p className="text-sm text-gray-500">{player.faction}</p>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-sm text-gray-500">{player.faction}</p>
+                      <span className="text-xs text-purple-500">•</span>
+                      <p className="text-sm text-purple-500">{player.strategyName}</p>
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
@@ -143,7 +147,11 @@ function PlayerPerformanceView({ onPlayerSelect }: PlayerPerformanceViewProps) {
                   </div>
                   <div>
                     <p className="font-medium">{player.name}</p>
-                    <p className="text-sm text-gray-500">{player.faction}</p>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-sm text-gray-500">{player.faction}</p>
+                      <span className="text-xs text-purple-500">•</span>
+                      <p className="text-sm text-purple-500">{player.strategyName}</p>
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
@@ -152,6 +160,78 @@ function PlayerPerformanceView({ onPlayerSelect }: PlayerPerformanceViewProps) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Strategy Performance Analysis */}
+      <div className="card">
+        <h3 className="text-lg font-semibold mb-4 flex items-center">
+          <Brain className="h-5 w-5 mr-2" />
+          Strategy Performance Analysis
+        </h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Strategy Distribution */}
+          <div>
+            <h4 className="font-medium mb-3">Strategy Distribution</h4>
+            <div className="space-y-2">
+              {Object.entries(
+                playerStats.reduce((acc, player) => {
+                  acc[player.strategyName] = (acc[player.strategyName] || 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>)
+              )
+                .sort(([,a], [,b]) => b - a)
+                .map(([strategy, count]) => (
+                  <div key={strategy} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                    <span className="font-medium">{strategy}</span>
+                    <span className="text-sm text-gray-500">{count} players</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Top Performing Strategies */}
+          <div>
+            <h4 className="font-medium mb-3">Top Performing Strategies</h4>
+            <div className="space-y-2">
+              {Object.entries(
+                playerStats.reduce((acc, player) => {
+                  if (!acc[player.strategyName]) {
+                    acc[player.strategyName] = { totalScore: 0, count: 0, avgWinRate: 0 };
+                  }
+                  acc[player.strategyName].totalScore += player.score;
+                  acc[player.strategyName].count += 1;
+                  acc[player.strategyName].avgWinRate += player.winRate;
+                  return acc;
+                }, {} as Record<string, { totalScore: number; count: number; avgWinRate: number }>)
+              )
+                .map(([strategy, stats]) => ({
+                  strategy,
+                  avgScore: stats.totalScore / stats.count,
+                  avgWinRate: stats.avgWinRate / stats.count,
+                  count: stats.count
+                }))
+                .sort((a, b) => b.avgScore - a.avgScore)
+                .slice(0, 5)
+                .map((strategy, index) => (
+                  <div key={strategy.strategy} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <span className="font-medium">{strategy.strategy}</span>
+                        <div className="text-xs text-gray-500">{strategy.count} players</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-sm">{strategy.avgScore.toFixed(1)} avg score</div>
+                      <div className="text-xs text-gray-500">{strategy.avgWinRate.toFixed(1)}% win rate</div>
+                    </div>
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
       </div>
@@ -167,6 +247,7 @@ function PlayerPerformanceView({ onPlayerSelect }: PlayerPerformanceViewProps) {
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
                 <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Player</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Strategy</th>
                 <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Score</th>
                 <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Reputation</th>
                 <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Win Rate</th>
@@ -186,6 +267,17 @@ function PlayerPerformanceView({ onPlayerSelect }: PlayerPerformanceViewProps) {
                     <div>
                       <div className="font-medium text-gray-900 dark:text-white">{player.name}</div>
                       <div className="text-sm text-gray-500">{player.faction}</div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center space-x-2">
+                      <Brain className="h-4 w-4 text-purple-500" />
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white text-sm">{player.strategyName}</div>
+                        <div className="text-xs text-gray-500 max-w-xs truncate" title={player.strategyDescription}>
+                          {player.strategyDescription}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="py-3 px-4 text-right">
@@ -224,7 +316,7 @@ function PlayerPerformanceView({ onPlayerSelect }: PlayerPerformanceViewProps) {
 }
 
 export function Analysis() {
-  const { players, matches, statistics } = useSimulationStore();
+  const { players, statistics } = useSimulationStore();
   const [activeView, setActiveView] = useState<'analytics' | 'scenarios' | 'players' | 'protocol'>('analytics');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 

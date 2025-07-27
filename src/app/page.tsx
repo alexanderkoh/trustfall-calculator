@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  BarChart3, 
   Lightbulb, Cog, Activity, TrendingUp 
 } from 'lucide-react';
 import { WelcomeGuide } from '@/components/WelcomeGuide';

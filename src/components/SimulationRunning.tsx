@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { 
-  Play, Pause, RotateCcw, BarChart3, Users, Target, 
+  Play, RotateCcw, BarChart3, Users, Target, 
   Clock, TrendingUp, Activity, Settings, Eye, FastForward 
 } from 'lucide-react';
 import { MatchSimulator } from './MatchSimulator';

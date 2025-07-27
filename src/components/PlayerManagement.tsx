@@ -4,16 +4,17 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Edit, Trash2, RotateCcw, Users, UserPlus, Settings } from 'lucide-react';
+import { Edit, Trash2, RotateCcw, Users, UserPlus, Settings, Brain } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
-import { Player } from '@/types/simulation';
+import { Player, STRATEGIES, StrategyType } from '@/types/simulation';
 
 
 const playerSchema = z.object({
   name: z.string().min(1, 'Player name is required').max(50, 'Name too long'),
   initialDeposit: z.number().min(1, 'Deposit must be at least $1').max(1000000, 'Deposit too large'),
   reputation: z.number().min(0, 'Reputation cannot be negative').max(100, 'Reputation cannot exceed 100'),
-  trustPercentage: z.number().min(0, 'Trust percentage cannot be negative').max(100, 'Trust percentage cannot exceed 100'),
+  strategyType: z.enum(['percentage', 'tit_for_tat', 'always_cooperate', 'always_defect', 'random', 'tit_for_two_tats', 'grim_trigger', 'pavlov', 'generous_tit_for_tat', 'firm_but_fair', 'suspicious_tit_for_tat', 'soft_majority', 'hard_majority', 'prober', 'random_tit_for_tat', 'contrite_tit_for_tat', 'adaptive'] as const),
+  trustPercentage: z.number().min(0, 'Trust percentage cannot be negative').max(100, 'Trust percentage cannot exceed 100').optional(),
 });
 
 const bulkPlayerSchema = z.object({
@@ -22,11 +23,13 @@ const bulkPlayerSchema = z.object({
   depositMin: z.number().min(1, 'Minimum deposit must be at least $1').max(1000000, 'Deposit too large'),
   depositMax: z.number().min(1, 'Maximum deposit must be at least $1').max(1000000, 'Deposit too large'),
   depositVariance: z.number().min(0, 'Variance cannot be negative').max(100, 'Variance cannot exceed 100%'),
-  trustMin: z.number().min(0, 'Minimum trust cannot be negative').max(100, 'Trust cannot exceed 100'),
-  trustMax: z.number().min(0, 'Maximum trust cannot be negative').max(100, 'Trust cannot exceed 100'),
-  trustVariance: z.number().min(0, 'Variance cannot be negative').max(100, 'Variance cannot exceed 100%'),
   reputationMin: z.number().min(0, 'Minimum reputation cannot be negative').max(100, 'Reputation cannot exceed 100'),
   reputationMax: z.number().min(0, 'Maximum reputation cannot be negative').max(100, 'Reputation cannot exceed 100'),
+  strategyAssignment: z.enum(['percentage', 'random', 'specific'] as const),
+  specificStrategy: z.enum(['tit_for_tat', 'always_cooperate', 'always_defect', 'random', 'tit_for_two_tats', 'grim_trigger', 'pavlov', 'generous_tit_for_tat', 'firm_but_fair', 'suspicious_tit_for_tat', 'soft_majority', 'hard_majority', 'prober', 'random_tit_for_tat', 'contrite_tit_for_tat', 'adaptive'] as const).optional(),
+  trustMin: z.number().min(0, 'Minimum trust cannot be negative').max(100, 'Trust cannot exceed 100').optional(),
+  trustMax: z.number().min(0, 'Maximum trust cannot be negative').max(100, 'Trust cannot exceed 100').optional(),
+  trustVariance: z.number().min(0, 'Variance cannot be negative').max(100, 'Variance cannot exceed 100%').optional(),
 });
 
 type PlayerFormData = z.infer<typeof playerSchema>;
@@ -40,9 +43,28 @@ export function PlayerManagement() {
     name: string;
     initialDeposit: number;
     reputation: number;
-    trustPercentage: number;
+    strategy: string;
     faction: string;
   }>>([]);
+
+  // Function to find the next available player number for a given prefix
+  const getNextPlayerNumber = (prefix: string): number => {
+    const existingPlayers = players.filter(player => 
+      player.name.startsWith(prefix + ' ') && 
+      /^\d+$/.test(player.name.substring(prefix.length + 1))
+    );
+    
+    if (existingPlayers.length === 0) {
+      return 1;
+    }
+    
+    const numbers = existingPlayers.map(player => {
+      const numberStr = player.name.substring(prefix.length + 1);
+      return parseInt(numberStr, 10);
+    });
+    
+    return Math.max(...numbers) + 1;
+  };
 
 
   const playerForm = useForm<PlayerFormData>({
@@ -51,6 +73,7 @@ export function PlayerManagement() {
       name: '',
       initialDeposit: 1000,
       reputation: 50,
+      strategyType: 'percentage',
       trustPercentage: 50,
     },
   });
@@ -63,15 +86,22 @@ export function PlayerManagement() {
       depositMin: 100,
       depositMax: 10000,
       depositVariance: 20,
+      reputationMin: 20,
+      reputationMax: 80,
+      strategyAssignment: 'random',
       trustMin: 20,
       trustMax: 80,
       trustVariance: 15,
-      reputationMin: 20,
-      reputationMax: 80,
     },
   });
 
   const onSubmit = (data: PlayerFormData) => {
+    // Check if player name already exists (only for new players, not when editing)
+    if (!editingPlayer && players.some(player => player.name === data.name)) {
+      alert(`A player with the name "${data.name}" already exists. Please choose a different name.`);
+      return;
+    }
+
     if (editingPlayer) {
       updatePlayer(editingPlayer.id, data);
       setEditingPlayer(null);
@@ -84,6 +114,7 @@ export function PlayerManagement() {
 
   const onBulkSubmit = (data: BulkPlayerFormData) => {
     const createdPlayers = [];
+    const startNumber = getNextPlayerNumber(data.namePrefix);
     
     for (let i = 0; i < data.count; i++) {
       // Generate random deposit with variance
@@ -92,20 +123,29 @@ export function PlayerManagement() {
       const depositRandom = Math.random() * depositVarianceAmount * 2 - depositVarianceAmount;
       const deposit = Math.max(1, Math.round(data.depositMin + (depositRange * Math.random()) + depositRandom));
 
-      // Generate random trust with variance
-      const trustRange = data.trustMax - data.trustMin;
-      const trustVarianceAmount = (trustRange * data.trustVariance) / 100;
-      const trustRandom = Math.random() * trustVarianceAmount * 2 - trustVarianceAmount;
-      const trust = Math.max(0, Math.min(100, Math.round(data.trustMin + (trustRange * Math.random()) + trustRandom)));
-
       // Generate random reputation
       const reputation = Math.round(data.reputationMin + Math.random() * (data.reputationMax - data.reputationMin));
 
+      // Determine strategy
+      let strategy: StrategyType;
+      if (data.strategyAssignment === 'percentage') {
+        strategy = 'percentage';
+      } else if (data.strategyAssignment === 'specific' && data.specificStrategy) {
+        strategy = data.specificStrategy;
+      } else {
+        // Random strategy
+        const strategyTypes = Object.keys(STRATEGIES).filter(type => type !== 'percentage') as StrategyType[];
+        strategy = strategyTypes[Math.floor(Math.random() * strategyTypes.length)];
+      }
+
       const playerData = {
-        name: `${data.namePrefix} ${i + 1}`,
+        name: `${data.namePrefix} ${startNumber + i}`,
         initialDeposit: deposit,
         reputation: reputation,
-        trustPercentage: trust,
+        strategy: strategy,
+        ...(strategy === 'percentage' && data.trustMin && data.trustMax && {
+          trustPercentage: Math.max(0, Math.min(100, Math.round(data.trustMin + (data.trustMax - data.trustMin) * Math.random())))
+        })
       };
 
       addPlayer(playerData);
@@ -120,6 +160,7 @@ export function PlayerManagement() {
   const generatePreview = () => {
     const data = bulkForm.getValues();
     const preview = [];
+    const startNumber = getNextPlayerNumber(data.namePrefix);
     
     for (let i = 0; i < Math.min(data.count, 5); i++) {
       // Generate random deposit with variance
@@ -128,20 +169,22 @@ export function PlayerManagement() {
       const depositRandom = Math.random() * depositVarianceAmount * 2 - depositVarianceAmount;
       const deposit = Math.max(1, Math.round(data.depositMin + (depositRange * Math.random()) + depositRandom));
 
-      // Generate random trust with variance
-      const trustRange = data.trustMax - data.trustMin;
-      const trustVarianceAmount = (trustRange * data.trustVariance) / 100;
-      const trustRandom = Math.random() * trustVarianceAmount * 2 - trustVarianceAmount;
-      const trust = Math.max(0, Math.min(100, Math.round(data.trustMin + (trustRange * Math.random()) + trustRandom)));
-
       // Generate random reputation
       const reputation = Math.round(data.reputationMin + Math.random() * (data.reputationMax - data.reputationMin));
 
+      // Determine strategy for preview
+      let strategyName = 'Random';
+      if (data.strategyAssignment === 'percentage') {
+        strategyName = 'Percentage Trust';
+      } else if (data.strategyAssignment === 'specific' && data.specificStrategy) {
+        strategyName = STRATEGIES[data.specificStrategy].name;
+      }
+
       preview.push({
-        name: `${data.namePrefix} ${i + 1}`,
+        name: `${data.namePrefix} ${startNumber + i}`,
         initialDeposit: deposit,
         reputation: reputation,
-        trustPercentage: trust,
+        strategy: strategyName,
         faction: reputation >= 0 && reputation <= 40 ? 'Shadow Syndicate' : 
                 reputation >= 41 && reputation <= 59 ? 'Free Agents' : 'Lumina Collective',
       });
@@ -302,45 +345,84 @@ export function PlayerManagement() {
             </div>
 
             <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <h4 className="font-medium mb-3">Trust Strategy Range</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <h4 className="font-medium mb-3 flex items-center">
+                <Brain className="w-4 h-4 mr-2" />
+                Strategy Assignment
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Min Trust (%)
+                    Assignment Type
                   </label>
-                  <input
-                    {...bulkForm.register('trustMin', { valueAsNumber: true })}
-                    type="number"
-                    min="0"
-                    max="100"
+                  <select
+                    {...bulkForm.register('strategyAssignment')}
                     className="input-field"
-                  />
+                  >
+                    <option value="percentage">Percentage Trust (Random %)</option>
+                    <option value="random">Random Strategies</option>
+                    <option value="specific">Specific Strategy</option>
+                  </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Max Trust (%)
-                  </label>
-                  <input
-                    {...bulkForm.register('trustMax', { valueAsNumber: true })}
-                    type="number"
-                    min="0"
-                    max="100"
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Variance (%)
-                  </label>
-                  <input
-                    {...bulkForm.register('trustVariance', { valueAsNumber: true })}
-                    type="number"
-                    min="0"
-                    max="100"
-                    className="input-field"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Randomness within range</p>
-                </div>
+                
+                {bulkForm.watch('strategyAssignment') === 'specific' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Strategy
+                    </label>
+                    <select
+                      {...bulkForm.register('specificStrategy')}
+                      className="input-field"
+                    >
+                      {Object.entries(STRATEGIES).filter(([key]) => key !== 'percentage').map(([key, strategy]) => (
+                        <option key={key} value={key}>
+                          {strategy.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {bulkForm.watch('strategyAssignment') === 'percentage' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Min Trust (%)
+                      </label>
+                      <input
+                        {...bulkForm.register('trustMin', { valueAsNumber: true })}
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Max Trust (%)
+                      </label>
+                      <input
+                        {...bulkForm.register('trustMax', { valueAsNumber: true })}
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Variance (%)
+                      </label>
+                      <input
+                        {...bulkForm.register('trustVariance', { valueAsNumber: true })}
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="input-field"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Randomness within range</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -375,14 +457,19 @@ export function PlayerManagement() {
             </div>
 
             <div className="flex justify-between items-center">
-              <button
-                type="button"
-                onClick={generatePreview}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Settings className="h-4 w-4" />
-                <span>Preview Sample</span>
-              </button>
+              <div className="flex items-center space-x-4">
+                <button
+                  type="button"
+                  onClick={generatePreview}
+                  className="btn-secondary flex items-center space-x-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Preview Sample</span>
+                </button>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Players will be named: {bulkForm.watch('namePrefix')} {getNextPlayerNumber(bulkForm.watch('namePrefix'))} to {bulkForm.watch('namePrefix')} {getNextPlayerNumber(bulkForm.watch('namePrefix')) + bulkForm.watch('count') - 1}
+                </div>
+              </div>
               <button type="submit" className="btn-primary">
                 Create {bulkForm.watch('count')} Players
               </button>
@@ -399,7 +486,7 @@ export function PlayerManagement() {
                     <tr className="border-b border-gray-200 dark:border-gray-700">
                       <th className="text-left py-2 px-3">Name</th>
                       <th className="text-right py-2 px-3">Deposit</th>
-                      <th className="text-right py-2 px-3">Trust %</th>
+                      <th className="text-right py-2 px-3">Strategy</th>
                       <th className="text-right py-2 px-3">Reputation</th>
                       <th className="text-right py-2 px-3">Faction</th>
                     </tr>
@@ -409,7 +496,7 @@ export function PlayerManagement() {
                       <tr key={index} className="border-b border-gray-100 dark:border-gray-800">
                         <td className="py-2 px-3 font-medium">{player.name}</td>
                         <td className="py-2 px-3 text-right font-mono">${player.initialDeposit.toLocaleString()}</td>
-                        <td className="py-2 px-3 text-right">{player.trustPercentage}%</td>
+                        <td className="py-2 px-3 text-right">{player.strategy}</td>
                         <td className="py-2 px-3 text-right">{player.reputation}</td>
                         <td className="py-2 px-3 text-right">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFactionColor(player.faction)}`}>
@@ -443,6 +530,11 @@ export function PlayerManagement() {
               />
               {playerForm.formState.errors.name && (
                 <p className="text-red-500 text-sm mt-1">{playerForm.formState.errors.name.message}</p>
+              )}
+              {!editingPlayer && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Next available: Player {getNextPlayerNumber('Player')}
+                </p>
               )}
             </div>
 
@@ -481,20 +573,41 @@ export function PlayerManagement() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Trust Strategy (%)
+                Strategy Type
               </label>
-              <input
-                {...playerForm.register('trustPercentage', { valueAsNumber: true })}
-                type="number"
-                min="0"
-                max="100"
+              <select
+                {...playerForm.register('strategyType')}
                 className="input-field"
-                placeholder="50"
-              />
-              {playerForm.formState.errors.trustPercentage && (
-                <p className="text-red-500 text-sm mt-1">{playerForm.formState.errors.trustPercentage.message}</p>
+              >
+                {Object.entries(STRATEGIES).map(([key, strategy]) => (
+                  <option key={key} value={key}>
+                    {strategy.name}
+                  </option>
+                ))}
+              </select>
+              {playerForm.formState.errors.strategyType && (
+                <p className="text-red-500 text-sm mt-1">{playerForm.formState.errors.strategyType.message}</p>
               )}
             </div>
+
+            {playerForm.watch('strategyType') === 'percentage' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Trust Percentage (%)
+                </label>
+                <input
+                  {...playerForm.register('trustPercentage', { valueAsNumber: true })}
+                  type="number"
+                  min="0"
+                  max="100"
+                  className="input-field"
+                  placeholder="50"
+                />
+                {playerForm.formState.errors.trustPercentage && (
+                  <p className="text-red-500 text-sm mt-1">{playerForm.formState.errors.trustPercentage.message}</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end">
@@ -516,7 +629,7 @@ export function PlayerManagement() {
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Player</th>
                   <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Deposit</th>
                   <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Reputation</th>
-                  <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Trust %</th>
+                  <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Strategy</th>
                   <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Score</th>
                   <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Matches</th>
                   <th className="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Actions</th>
@@ -549,7 +662,7 @@ export function PlayerManagement() {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <span className="font-mono">{player.trustPercentage}%</span>
+                      <span className="text-sm">{player.strategy?.name || 'Percentage Trust'}</span>
                     </td>
                     <td className="py-3 px-4 text-right">
                       <span className={`font-mono ${player.score >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -568,7 +681,8 @@ export function PlayerManagement() {
                               name: player.name,
                               initialDeposit: player.initialDeposit,
                               reputation: player.reputation,
-                              trustPercentage: player.trustPercentage,
+                              strategyType: player.strategy?.type || 'percentage',
+                              trustPercentage: player.strategy?.type === 'percentage' ? player.strategy.trustPercentage : 50,
                             });
                           }}
                           className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"

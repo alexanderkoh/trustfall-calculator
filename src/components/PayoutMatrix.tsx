@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Grid, Settings, RefreshCw, Eye, RotateCcw } from 'lucide-react';
+import { Grid, Settings, Eye, RotateCcw } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
 import { PayoutMatrix as PayoutMatrixType, getDefaultPayoutMatrix } from '@/types/simulation';
 

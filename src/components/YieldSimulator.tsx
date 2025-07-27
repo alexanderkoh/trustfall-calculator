@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { TrendingUp, DollarSign, Calendar, RefreshCw, Calculator } from 'lucide-react';
+import { TrendingUp, DollarSign, RefreshCw, Calculator } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
 import { Player } from '@/types/simulation';
 
@@ -21,9 +21,7 @@ export function YieldSimulator() {
     players, 
     matches,
     config, 
-    yieldCalculations,
     updateConfig, 
-    calculateYield, 
     updateAllYields,
     totalVaultValue 
   } = useSimulationStore();
@@ -64,7 +62,7 @@ export function YieldSimulator() {
     updateAllYields();
   };
 
-  const generatePreview = (days: number, apy: number) => {
+  const generatePreview = useCallback((days: number, apy: number) => {
     if (players.length === 0) return null;
 
     const preview = players.map(player => {
@@ -96,14 +94,14 @@ export function YieldSimulator() {
         averageEffectiveAPY,
       }
     };
-  };
+  }, [players]);
 
   useEffect(() => {
     if (previewMode) {
       const preview = generatePreview(watchedValues.simulationDays, watchedValues.globalAPY);
       setPreviewData(preview);
     }
-  }, [watchedValues, previewMode, players]);
+  }, [watchedValues, previewMode, generatePreview]);
 
   const currentYieldData = generatePreview(30, config.globalAPY);
 

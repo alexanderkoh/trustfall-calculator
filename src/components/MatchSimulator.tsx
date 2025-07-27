@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Swords, Play, Users, Dice1, Shield, Zap, History } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
-import { Player, Match } from '@/types/simulation';
+import { Match } from '@/types/simulation';
 
 const matchFormSchema = z.object({
   playerAId: z.string().min(1, 'Player A is required'),
@@ -41,7 +41,6 @@ export function MatchSimulator() {
   });
 
   const selectedPlayerAId = watch('playerAId');
-  const selectedPlayerBId = watch('playerBId');
 
   const availablePlayersForB = players.filter(p => p.id !== selectedPlayerAId);
 

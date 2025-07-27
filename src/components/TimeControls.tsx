@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -49,7 +49,6 @@ export function TimeControls() {
   // Calculate derived values
   const minutesBetweenMatches = 1440 / watchedValues.matchesPerDay; // 1440 minutes in a day
   const matchesPerHour = watchedValues.matchesPerDay / 24;
-  const simulationInterval = 1000 / watchedValues.simulationSpeed; // milliseconds
 
   const onSubmit = (data: TimeConfigData) => {
     updateConfig({
@@ -421,7 +420,7 @@ export function TimeControls() {
             </div>
             <div className="text-center">
               <div className="text-xl font-bold text-blue-600">
-                {formatTime(matches.reduce((sum, match) => sum + config.matchDurationMinutes, 0))}
+                {formatTime(matches.reduce((sum) => sum + config.matchDurationMinutes, 0))}
               </div>
               <p className="text-sm text-gray-500">Total Match Time</p>
             </div>

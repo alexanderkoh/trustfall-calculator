@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ScatterChart, Scatter
+  PieChart, Pie, Cell, AreaChart, Area, ScatterChart, Scatter
 } from 'recharts';
 import { 
   TrendingUp, Users, DollarSign, Target, BarChart3, PieChart as PieChartIcon,
@@ -27,7 +27,6 @@ export function Dashboard() {
     players, 
     matches, 
     config, 
-    statistics,
     tokenDistributions 
   } = useSimulationStore();
 
@@ -157,16 +156,16 @@ export function Dashboard() {
     faction: player.faction,
     deposit: player.currentDeposit,
     matches: player.totalMatches,
-    trustRate: player.trustPercentage
+    trustRate: player.strategy.type === 'percentage' ? (player.strategy.trustPercentage || 50) : 50
   }));
 
-  // Reputation Progression Data
-  const reputationData = safeFilteredPlayers.map(player => ({
-    name: player.name,
-    reputation: player.reputation,
-    faction: player.faction,
-    score: player.score
-  }));
+  // Reputation Progression Data - commented out as not currently used
+  // const reputationData = safeFilteredPlayers.map(player => ({
+  //   name: player.name,
+  //   reputation: player.reputation,
+  //   faction: player.faction,
+  //   score: player.score
+  // }));
 
   // Faction Distribution
   const factionData = [
@@ -216,7 +215,7 @@ export function Dashboard() {
     totalTokens: filteredDistributions.reduce((sum, d) => sum + d.tokenReward, 0),
     avgScore: safeFilteredPlayers.length > 0 ? safeFilteredPlayers.reduce((sum, p) => sum + p.score, 0) / safeFilteredPlayers.length : 0,
     avgReputation: safeFilteredPlayers.length > 0 ? safeFilteredPlayers.reduce((sum, p) => sum + p.reputation, 0) / safeFilteredPlayers.length : 0,
-    trustRate: safeFilteredPlayers.length > 0 ? safeFilteredPlayers.reduce((sum, p) => sum + p.trustPercentage, 0) / safeFilteredPlayers.length : 0
+    trustRate: safeFilteredPlayers.length > 0 ? safeFilteredPlayers.reduce((sum, p) => sum + (p.strategy.type === 'percentage' ? (p.strategy.trustPercentage || 50) : 50), 0) / safeFilteredPlayers.length : 0
   };
 
   // Top Performers
@@ -432,7 +431,7 @@ export function Dashboard() {
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip 
-                formatter={(value, name) => [`$${typeof value === 'number' ? value.toFixed(2) : '0.00'}`, 'Yield']}
+                formatter={(value) => [`$${typeof value === 'number' ? value.toFixed(2) : '0.00'}`, 'Yield']}
               />
               <Bar dataKey="yield" fill={COLORS.yield}>
                 {yieldData.map((entry, index) => (

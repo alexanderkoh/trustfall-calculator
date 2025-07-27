@@ -104,7 +104,7 @@ export function ProtocolRevenueAnalytics() {
       revenue: Math.random() * 1000, // Placeholder
       count: Math.floor(Math.random() * 50), // Placeholder
     }));
-  }, [protocolRevenue]);
+  }, []);
 
   // Calculate yield capture percentage
   const yieldCapturePercentage = useMemo(() => {

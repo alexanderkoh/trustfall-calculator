@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { 
-  Play, Settings, BarChart3, Users, Target, Coins, 
-  Clock, FileText, ArrowRight, CheckCircle, Lightbulb 
+  Play, Settings, BarChart3, Users, Target, 
+  FileText, ArrowRight, CheckCircle, Lightbulb 
 } from 'lucide-react';
 
 export function WelcomeGuide() {

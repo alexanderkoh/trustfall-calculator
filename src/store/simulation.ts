@@ -12,14 +12,18 @@ import {
   SimulationMode,
   ReputationEvent,
   ProtocolRevenue,
-  ProtocolConfig
+  ProtocolConfig,
+  STRATEGIES,
+  getRandomStrategy,
+  StrategyType,
+  Strategy
 } from '@/types/simulation';
 
 
 
 interface SimulationStore extends SimulationState {
   // Player Management
-  addPlayer: (player: Pick<Player, 'name' | 'initialDeposit' | 'reputation' | 'trustPercentage'>) => void;
+  addPlayer: (player: Pick<Player, 'name' | 'initialDeposit' | 'reputation'> & { strategy?: StrategyType | Strategy }) => void;
   removePlayer: (playerId: string) => void;
   updatePlayer: (playerId: string, updates: Partial<Player>) => void;
   resetPlayerData: (playerId: string) => void;
@@ -77,6 +81,11 @@ interface SimulationStore extends SimulationState {
   
   // Statistics
   updateStatistics: () => void;
+  
+  // Strategy Management
+  updatePlayerStrategy: (playerId: string, strategy: StrategyType | Strategy) => void;
+  assignRandomStrategies: (playerIds: string[]) => void;
+  assignBulkStrategies: (playerIds: string[], strategy: StrategyType) => void;
 }
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -85,6 +94,123 @@ const createArbiterAction = (): 'trust' | 'betray' => {
   // Tit-for-Tat AI: Start with trust, then copy opponent's last action
   // For simplicity, we'll use a 70% trust rate for the Arbiter
   return Math.random() < 0.7 ? 'trust' : 'betray';
+};
+
+// Function to determine action based on strategy and match history
+const determineAction = (player: Player, opponentId: string): 'trust' | 'betray' => {
+  const { strategy } = player;
+  const opponentHistory = (player.matchHistory || []).filter(m => m.opponentId === opponentId);
+  
+  switch (strategy.type) {
+    case 'percentage':
+      const trustChance = strategy.trustPercentage || 50;
+      return Math.random() < (trustChance / 100) ? 'trust' : 'betray';
+      
+    case 'always_cooperate':
+      return 'trust';
+      
+    case 'always_defect':
+      return 'betray';
+      
+    case 'random':
+      return Math.random() < 0.5 ? 'trust' : 'betray';
+      
+    case 'tit_for_tat':
+      if (opponentHistory.length === 0) return 'trust';
+      return opponentHistory[opponentHistory.length - 1].opponentAction;
+      
+    case 'suspicious_tit_for_tat':
+      if (opponentHistory.length === 0) return 'betray';
+      return opponentHistory[opponentHistory.length - 1].opponentAction;
+      
+    case 'tit_for_two_tats':
+      if (opponentHistory.length < 2) return 'trust';
+      const lastTwo = opponentHistory.slice(-2);
+      if (lastTwo.every(m => m.opponentAction === 'betray')) return 'betray';
+      return 'trust';
+      
+    case 'grim_trigger':
+      if (opponentHistory.some(m => m.opponentAction === 'betray')) return 'betray';
+      return 'trust';
+      
+    case 'pavlov':
+      if (opponentHistory.length === 0) return 'trust';
+      const lastMatch = opponentHistory[opponentHistory.length - 1];
+      // If last match was mutual cooperation or mutual defection, repeat action
+      if ((lastMatch.myAction === 'trust' && lastMatch.opponentAction === 'trust') ||
+          (lastMatch.myAction === 'betray' && lastMatch.opponentAction === 'betray')) {
+        return lastMatch.myAction;
+      }
+      // Otherwise switch
+      return lastMatch.myAction === 'trust' ? 'betray' : 'trust';
+      
+    case 'generous_tit_for_tat':
+      if (opponentHistory.length === 0) return 'trust';
+      const lastOpponentAction = opponentHistory[opponentHistory.length - 1].opponentAction;
+      // 10% chance to forgive and cooperate anyway
+      if (lastOpponentAction === 'betray' && Math.random() < 0.1) return 'trust';
+      return lastOpponentAction;
+      
+    case 'firm_but_fair':
+      if (opponentHistory.length === 0) return 'trust';
+      const hasBeenBetrayed = opponentHistory.some(m => m.opponentAction === 'betray');
+      if (!hasBeenBetrayed) return 'trust';
+      // After being betrayed, defect once then return to cooperation
+      const betrayalIndex = opponentHistory.findIndex(m => m.opponentAction === 'betray');
+      const matchesAfterBetrayal = opponentHistory.length - betrayalIndex;
+      if (matchesAfterBetrayal === 1) return 'betray';
+      return 'trust';
+      
+    case 'soft_majority':
+      if (opponentHistory.length === 0) return 'trust';
+      const cooperations = opponentHistory.filter(m => m.opponentAction === 'trust').length;
+      return cooperations >= opponentHistory.length / 2 ? 'trust' : 'betray';
+      
+    case 'hard_majority':
+      if (opponentHistory.length === 0) return 'trust';
+      const coopCount = opponentHistory.filter(m => m.opponentAction === 'trust').length;
+      return coopCount > opponentHistory.length / 2 ? 'trust' : 'betray';
+      
+    case 'prober':
+      if (opponentHistory.length === 0) return 'betray';
+      if (opponentHistory.length === 2) return 'betray'; // Third move
+      if (opponentHistory.length === 3) return 'betray'; // Fourth move
+      // After probing, mimic if cooperation was detected
+      const firstFour = opponentHistory.slice(0, 4);
+      const cooperationDetected = firstFour.some(m => m.opponentAction === 'trust');
+      if (cooperationDetected) {
+        return opponentHistory[opponentHistory.length - 1].opponentAction;
+      }
+      return 'betray';
+      
+    case 'random_tit_for_tat':
+      if (opponentHistory.length === 0) return 'trust';
+      const baseAction = opponentHistory[opponentHistory.length - 1].opponentAction;
+      // 10% chance to cooperate regardless
+      if (Math.random() < 0.1) return 'trust';
+      return baseAction;
+      
+    case 'contrite_tit_for_tat':
+      if (opponentHistory.length === 0) return 'trust';
+      const lastMatchResult = opponentHistory[opponentHistory.length - 1];
+      if (lastMatchResult.myAction === 'betray' && lastMatchResult.opponentAction === 'betray') {
+        return 'trust'; // Try to re-establish cooperation
+      }
+      return lastMatchResult.opponentAction;
+      
+    case 'adaptive':
+      if (opponentHistory.length === 0) return 'trust';
+      // Start as tit-for-tat, switch to always defect if exploited
+      const recentMatches = opponentHistory.slice(-5);
+      const exploitationCount = recentMatches.filter(m => 
+        m.myAction === 'trust' && m.opponentAction === 'betray'
+      ).length;
+      if (exploitationCount >= 3) return 'betray'; // Switch to always defect
+      return opponentHistory[opponentHistory.length - 1].opponentAction;
+      
+    default:
+      return Math.random() < 0.5 ? 'trust' : 'betray';
+  }
 };
 
 const getMatchResult = (actionA: 'trust' | 'betray', actionB: 'trust' | 'betray'): Match['result'] => {
@@ -122,17 +248,35 @@ export const useSimulationStore = create<SimulationStore>()(
       // Player Management
       addPlayer: (playerData) => set((state) => {
         const faction = getFactionByReputation(playerData.reputation);
+        
+        // Handle strategy assignment
+        let strategy: Strategy;
+        if (playerData.strategy) {
+          if (typeof playerData.strategy === 'string') {
+            strategy = STRATEGIES[playerData.strategy];
+          } else {
+            strategy = playerData.strategy;
+          }
+        } else {
+          // Default to percentage strategy with 50% trust
+          strategy = { ...STRATEGIES.percentage, trustPercentage: 50 };
+        }
+        
         const newPlayer: Player = {
-          ...playerData,
           id: generateId(),
-          faction,
+          name: playerData.name,
+          initialDeposit: playerData.initialDeposit,
           currentDeposit: playerData.initialDeposit,
+          reputation: playerData.reputation,
+          faction,
           totalMatches: 0,
           score: 0,
           finalYield: 0,
+          strategy,
           tokenRewards: {},
           createdAt: new Date(),
           reputationHistory: [],
+          matchHistory: [],
         };
         
         // Add initial reputation event
@@ -233,10 +377,8 @@ export const useSimulationStore = create<SimulationStore>()(
           actionA = forceActions.actionA;
           actionB = forceActions.actionB;
         } else {
-          actionA = Math.random() < (playerA.trustPercentage / 100) ? 'trust' : 'betray';
-          actionB = playerB 
-            ? Math.random() < (playerB.trustPercentage / 100) ? 'trust' : 'betray'
-            : createArbiterAction();
+          actionA = determineAction(playerA, playerB?.id || 'arbiter');
+          actionB = playerB ? determineAction(playerB, playerA.id) : createArbiterAction();
         }
 
         const result = getMatchResult(actionA, actionB);
@@ -302,23 +444,47 @@ export const useSimulationStore = create<SimulationStore>()(
 
         const updatedPlayers = state.players.map(player => {
           if (player.id === playerAId) {
+            const newReputation = Math.max(0, Math.min(100, player.reputation + newMatch.reputationChangeA));
             return {
               ...player,
               totalMatches: player.totalMatches + 1,
               score: player.score + scoreChangeA,
-              reputation: Math.max(0, Math.min(100, player.reputation + newMatch.reputationChangeA)),
+              reputation: newReputation,
               finalYield: player.finalYield + newMatch.yieldShareA,
-              faction: getFactionByReputation(Math.max(0, Math.min(100, player.reputation + newMatch.reputationChangeA))),
+              faction: getFactionByReputation(newReputation),
+              matchHistory: [
+                ...(player.matchHistory || []),
+                {
+                  matchId: newMatch.id,
+                  opponentId: playerB?.id || 'arbiter',
+                  myAction: actionA,
+                  opponentAction: actionB,
+                  result,
+                  timestamp: new Date(),
+                }
+              ],
             };
           }
           if (playerB && player.id === playerBId) {
+            const newReputation = Math.max(0, Math.min(100, player.reputation + newMatch.reputationChangeB));
             return {
               ...player,
               totalMatches: player.totalMatches + 1,
               score: player.score + scoreChangeB,
-              reputation: Math.max(0, Math.min(100, player.reputation + newMatch.reputationChangeB)),
+              reputation: newReputation,
               finalYield: player.finalYield + newMatch.yieldShareB,
-              faction: getFactionByReputation(Math.max(0, Math.min(100, player.reputation + newMatch.reputationChangeB))),
+              faction: getFactionByReputation(newReputation),
+              matchHistory: [
+                ...(player.matchHistory || []),
+                {
+                  matchId: newMatch.id,
+                  opponentId: playerA.id,
+                  myAction: actionB,
+                  opponentAction: actionA,
+                  result,
+                  timestamp: new Date(),
+                }
+              ],
             };
           }
           return player;
@@ -624,9 +790,9 @@ export const useSimulationStore = create<SimulationStore>()(
       createMatch: (playerA: Player, playerB: Player | null): Match | null => {
         const { config } = get();
         
-        // Determine actions based on trust percentages
-        const actionA = Math.random() * 100 < playerA.trustPercentage ? 'trust' : 'betray';
-        const actionB = playerB ? (Math.random() * 100 < playerB.trustPercentage ? 'trust' : 'betray') : createArbiterAction();
+        // Determine actions based on strategies
+        const actionA = determineAction(playerA, playerB?.id || 'arbiter');
+        const actionB = playerB ? determineAction(playerB, playerA.id) : createArbiterAction();
         
         const result = getMatchResult(actionA, actionB);
         const matrix = config.payoutMatrix;
@@ -722,6 +888,17 @@ export const useSimulationStore = create<SimulationStore>()(
                 reputation: newReputation,
                 totalMatches: p.totalMatches + 1,
                 finalYield: p.finalYield + adjustedYieldShareA,
+                matchHistory: [
+                  ...(p.matchHistory || []),
+                  {
+                    matchId: match.id,
+                    opponentId: playerB?.id || 'arbiter',
+                    myAction: actionA,
+                    opponentAction: actionB,
+                    result,
+                    timestamp: new Date(),
+                  }
+                ],
               };
             }
             if (playerB && p.id === playerB.id) {
@@ -746,6 +923,17 @@ export const useSimulationStore = create<SimulationStore>()(
                 reputation: newReputation,
                 totalMatches: p.totalMatches + 1,
                 finalYield: p.finalYield + adjustedYieldShareB,
+                matchHistory: [
+                  ...(p.matchHistory || []),
+                  {
+                    matchId: match.id,
+                    opponentId: playerA.id,
+                    myAction: actionB,
+                    opponentAction: actionA,
+                    result,
+                    timestamp: new Date(),
+                  }
+                ],
               };
             }
             return p;
@@ -839,7 +1027,7 @@ export const useSimulationStore = create<SimulationStore>()(
 
       // New granular simulation controls
       executeSimulation: (mode: SimulationMode, amount: number) => {
-        const { players, config } = get();
+        const { players } = get();
         
         if (players.length === 0) {
           console.warn('No players available for simulation');
@@ -994,6 +1182,39 @@ export const useSimulationStore = create<SimulationStore>()(
         
         return { statistics: stats };
       }),
+
+      // Strategy Management
+      updatePlayerStrategy: (playerId: string, strategy: StrategyType | Strategy) => set((state) => {
+        const strategyObj = typeof strategy === 'string' ? STRATEGIES[strategy] : strategy;
+        return {
+          players: state.players.map(player => 
+            player.id === playerId 
+              ? { ...player, strategy: strategyObj }
+              : player
+          ),
+        };
+      }),
+
+      assignRandomStrategies: (playerIds: string[]) => set((state) => {
+        return {
+          players: state.players.map(player => 
+            playerIds.includes(player.id)
+              ? { ...player, strategy: getRandomStrategy() }
+              : player
+          ),
+        };
+      }),
+
+      assignBulkStrategies: (playerIds: string[], strategy: StrategyType) => set((state) => {
+        const strategyObj = STRATEGIES[strategy];
+        return {
+          players: state.players.map(player => 
+            playerIds.includes(player.id)
+              ? { ...player, strategy: strategyObj }
+              : player
+          ),
+        };
+      }),
     }),
     {
       name: 'trustfall-simulation',
@@ -1008,6 +1229,16 @@ export const useSimulationStore = create<SimulationStore>()(
             };
             players?: Array<{
               createdAt?: Date | string;
+              strategy?: Strategy | null;
+              trustPercentage?: number;
+              matchHistory?: Array<{
+                matchId: string;
+                opponentId: string;
+                myAction: 'trust' | 'betray';
+                opponentAction: 'trust' | 'betray';
+                result: string;
+                timestamp: Date;
+              }>;
             }>;
             matches?: Array<{
               timestamp?: Date | string;
@@ -1019,6 +1250,45 @@ export const useSimulationStore = create<SimulationStore>()(
               } | null;
             }>;
           };
+          
+          // Migrate players to include strategy property
+          const migratedPlayers = state.players?.map((player: { 
+            createdAt?: Date | string; 
+            strategy?: Strategy | null; 
+            trustPercentage?: number;
+            matchHistory?: Array<{
+              matchId: string;
+              opponentId: string;
+              myAction: 'trust' | 'betray';
+              opponentAction: 'trust' | 'betray';
+              result: string;
+              timestamp: Date;
+            }>;
+          }) => {
+            // If player doesn't have strategy property, create one based on trustPercentage
+            let strategy = player.strategy;
+            if (!strategy) {
+              const trustPercentage = player.trustPercentage || 50;
+              strategy = {
+                type: 'percentage',
+                name: 'Percentage Trust',
+                description: `Cooperates ${trustPercentage}% of the time`,
+                trustPercentage: trustPercentage
+              };
+            }
+            
+            return {
+              ...player,
+              strategy,
+              matchHistory: player.matchHistory || [],
+              createdAt: player.createdAt ? 
+                (player.createdAt instanceof Date ? 
+                  player.createdAt : 
+                  new Date(player.createdAt)) : 
+                new Date(),
+            };
+          }) || [];
+          
           return {
             ...state,
             config: {
@@ -1034,14 +1304,7 @@ export const useSimulationStore = create<SimulationStore>()(
                   new Date(state.config.currentDate)) : 
                 new Date(),
             },
-            players: state.players?.map((player: { createdAt?: Date | string }) => ({
-              ...player,
-              createdAt: player.createdAt ? 
-                (player.createdAt instanceof Date ? 
-                  player.createdAt : 
-                  new Date(player.createdAt)) : 
-                new Date(),
-            })) || [],
+            players: migratedPlayers,
             matches: state.matches?.map((match: {
               timestamp?: Date | string;
               playerA?: { createdAt?: Date | string };
